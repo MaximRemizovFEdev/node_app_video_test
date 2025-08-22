@@ -5,7 +5,7 @@ services:
     buildCommand: |
       npm install
       cd client && npm install && npm run build && cd ..
-    startCommand: npm dev:full
+    startCommand: npm run dev:full
     envVars:
       - key: PORT
         value: 9788
