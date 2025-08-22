@@ -4,8 +4,12 @@ services:
     env: node
     buildCommand: |
       npm install
-      cd client && npm install && npm run build && cd ..
-    startCommand: npm run dev:full
+      cd client
+      npm install
+      npm run build
+      cd ..
+      echo "Build completed successfully"
+    startCommand: npm start
     envVars:
       - key: PORT
         value: 9788

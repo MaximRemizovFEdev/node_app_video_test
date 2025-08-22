@@ -9,7 +9,9 @@
     "client": "cd client && npm run dev",
     "client:build": "cd client && npm run build",
     "client:start": "cd client && npm start",
-    "dev:full": "concurrently \"npm run dev\" \"npm run client\""
+    "dev:full": "concurrently \"npm run dev\" \"npm run client\"",
+    "build": "cd client && npm install && npm run build",
+    "start:fallback": "NODE_ENV=production node server.js"
   },
   "license": "ISC",
   "dependencies": {

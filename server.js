@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,9 +17,18 @@ const io = socketIo(server, {
   transports: ['websocket', 'polling']
 });
 
-// Раздача статических файлов из собранного клиента
+// Определяем путь к статическим файлам
 const clientPath = path.join(__dirname, 'client/out');
-app.use(express.static(clientPath));
+const publicPath = path.join(__dirname, 'public');
+
+// Проверяем, существует ли собранный клиент
+if (fs.existsSync(clientPath)) {
+  console.log('Serving built client from:', clientPath);
+  app.use(express.static(clientPath));
+} else {
+  console.log('Built client not found, serving from public directory:', publicPath);
+  app.use(express.static(publicPath));
+}
 
 // Health check endpoint должен быть перед fallback
 app.get('/health', (req, res) => {
@@ -27,10 +37,12 @@ app.get('/health', (req, res) => {
 
 // Fallback для SPA - все маршруты ведут к index.html
 app.get('*', (req, res) => {
-  res.sendFile(path.join(clientPath, 'index.html'));
+  if (fs.existsSync(clientPath)) {
+    res.sendFile(path.join(clientPath, 'index.html'));
+  } else {
+    res.sendFile(path.join(publicPath, 'index.html'));
+  }
 });
-
-
 
 // Обработка WebSocket соединений
 io.on('connection', (socket) => {
