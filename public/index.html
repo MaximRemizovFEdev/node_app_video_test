@@ -19,6 +19,14 @@
     <p>Media: <span id="mediaStatus">Not ready</span></p>
     <p>Connection: <span id="connectionStatus">Not started</span></p>
   </div>
+  <div class="audio-indicator">
+    <div class="audio-bar"></div>
+    <div class="audio-bar"></div>
+    <div class="audio-bar"></div>
+    <div class="audio-bar"></div>
+    <div class="audio-bar"></div>
+  </div>
+  <button onclick="switchAudioOutput()">🔊 Switch Speaker</button>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -152,5 +160,52 @@
       console.log('Media initialization complete');
     });
   </script>
+  <script>
+    function setupAudioMonitoring() {
+      const remoteVideo = document.getElementById('remoteVideo');
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaElementSource(remoteVideo);
+      const analyzer = audioContext.createAnalyser();
+      
+      source.connect(analyzer);
+      analyzer.connect(audioContext.destination);
+      
+      // Визуализация аудио
+      function updateAudioLevels() {
+        const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+        analyzer.getByteFrequencyData(dataArray);
+        
+        // Обновляем индикатор
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        console.log('Audio level:', average);
+        
+        requestAnimationFrame(updateAudioLevels);
+      }
+      
+      updateAudioLevels();
+    }
+    
+    // Запускаем после установки srcObject
+    remoteVideo.onloadedmetadata = setupAudioMonitoring;
+    </script>
+    <script>
+        async function switchAudioOutput() {
+          const remoteVideo = document.getElementById('remoteVideo');
+          
+          try {
+            // Получаем доступные аудиоустройства
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+            
+            if (audioOutputs.length > 0) {
+              // Пробуем установить другое устройство вывода
+              await remoteVideo.setSinkId(audioOutputs[0].deviceId);
+              console.log('Audio output switched');
+            }
+          } catch (error) {
+            console.error('Error switching audio:', error);
+          }
+        }
+    </script>
 </body>
 </html>
