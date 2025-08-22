@@ -11,7 +11,8 @@
     "client:start": "cd client && npm start",
     "dev:full": "concurrently \"npm run dev\" \"npm run client\"",
     "build": "cd client && npm install && npm run build",
-    "start:fallback": "NODE_ENV=production node server.js"
+    "start:fallback": "NODE_ENV=production node server.js",
+    "start:prod": "npm install && cd client && npm install && npm run build && cd .. && node server.js"
   },
   "license": "ISC",
   "dependencies": {

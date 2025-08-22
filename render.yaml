@@ -9,7 +9,7 @@ services:
       npm run build
       cd ..
       echo "Build completed successfully"
-    startCommand: npm start
+    startCommand: npm start  # Запускает только сервер, клиент уже собран
     envVars:
       - key: PORT
         value: 9788
