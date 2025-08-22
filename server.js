@@ -9,20 +9,28 @@ const server = http.createServer(app);
 // Важно: правильная настройка CORS для Socket.io
 const io = socketIo(server, {
   cors: {
-    origin: ["https://node-app-video-test.onrender.com", "http://localhost:3000"],
+    origin: ["https://node-app-video-test.onrender.com", "http://localhost:3000", "http://localhost:10000"],
     methods: ["GET", "POST"],
     credentials: true
   },
   transports: ['websocket', 'polling']
 });
 
-// Раздача статических файлов
-app.use(express.static(path.join(__dirname, 'public')));
+// Раздача статических файлов из собранного клиента
+const clientPath = path.join(__dirname, 'client/out');
+app.use(express.static(clientPath));
 
-// Добавьте health check endpoint
+// Health check endpoint должен быть перед fallback
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is running' });
 });
+
+// Fallback для SPA - все маршруты ведут к index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientPath, 'index.html'));
+});
+
+
 
 // Обработка WebSocket соединений
 io.on('connection', (socket) => {
