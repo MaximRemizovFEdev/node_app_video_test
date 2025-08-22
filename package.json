@@ -1,0 +1,12 @@
+{
+  "name": "test_video_call",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.5.0"
+  }
+}

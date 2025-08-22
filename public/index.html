@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Video Chat</title>
+  <style>
+    video { width: 300px; height: 225px; margin: 10px; }
+    #videos { display: flex; }
+  </style>
+</head>
+<body>
+  <h1>Simple Video Chat</h1>
+  <div id="videos">
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
+  </div>
+  <button id="startBtn">Start Call</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const startBtn = document.getElementById('startBtn');
+
+    let localStream;
+    let peerConnection;
+
+    // Конфигурация STUN серверов
+    const configuration = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
+
+    // Получение медиапотока
+    async function getMedia() {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        localVideo.srcObject = localStream;
+        startBtn.disabled = false;
+      } catch (error) {
+        console.error('Error accessing media devices:', error);
+      }
+    }
+
+    // Создание Peer Connection
+    function createPeerConnection() {
+      peerConnection = new RTCPeerConnection(configuration);
+
+      // Добавление локального потока
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      // Получение удаленного потока
+      peerConnection.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      // Обмен ICE кандидатами
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('signal', {
+            type: 'ice-candidate',
+            candidate: event.candidate
+          });
+        }
+      };
+    }
+
+    // Начало звонка
+    async function startCall() {
+      createPeerConnection();
+      
+      try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        socket.emit('signal', {
+          type: 'offer',
+          offer: offer
+        });
+      } catch (error) {
+        console.error('Error creating offer:', error);
+      }
+    }
+
+    // Обработка входящих сигналов
+    socket.on('signal', async (data) => {
+      if (!peerConnection) createPeerConnection();
+
+      try {
+        if (data.type === 'offer') {
+          await peerConnection.setRemoteDescription(data.offer);
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
+          
+          socket.emit('signal', {
+            type: 'answer',
+            answer: answer
+          });
+        } else if (data.type === 'answer') {
+          await peerConnection.setRemoteDescription(data.answer);
+        } else if (data.type === 'ice-candidate') {
+          await peerConnection.addIceCandidate(data.candidate);
+        }
+      } catch (error) {
+        console.error('Error handling signal:', error);
+      }
+    });
+
+    startBtn.addEventListener('click', startCall);
+    getMedia();
+  </script>
+</body>
+</html>
