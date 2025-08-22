@@ -5,26 +5,43 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+
+// Важно: правильная настройка CORS для Socket.io
+const io = socketIo(server, {
+  cors: {
+    origin: ["https://node-app-video-test.onrender.com", "http://localhost:3000"],
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling']
+});
 
 // Раздача статических файлов
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Добавьте health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is running' });
+});
 
 // Обработка WebSocket соединений
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // Пересылка сигнальных данных между пользователями
   socket.on('signal', (data) => {
+    console.log('Signal received from', socket.id, 'type:', data.type);
     socket.broadcast.emit('signal', data);
   });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+  socket.on('disconnect', (reason) => {
+    console.log('User disconnected:', socket.id, 'Reason:', reason);
   });
+
+  // Отправляем подтверждение подключения
+  socket.emit('connected', { id: socket.id });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });

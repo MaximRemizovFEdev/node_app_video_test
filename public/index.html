@@ -14,85 +14,54 @@
     <video id="remoteVideo" autoplay></video>
   </div>
   <button id="startBtn">Start Call</button>
+  <div id="status">
+    <p>WebSocket: <span id="wsStatus">Disconnected</span></p>
+    <p>Media: <span id="mediaStatus">Not ready</span></p>
+    <p>Connection: <span id="connectionStatus">Not started</span></p>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    const socket = io({
+      transports: ['websocket', 'polling']
+    });
+  
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
     const startBtn = document.getElementById('startBtn');
-
+  
     let localStream;
     let peerConnection;
-
-    // Конфигурация STUN серверов
+  
     const configuration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
       ]
     };
-
-    // Получение медиапотока
-    async function getMedia() {
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
-        localVideo.srcObject = localStream;
-        startBtn.disabled = false;
-      } catch (error) {
-        console.error('Error accessing media devices:', error);
-      }
-    }
-
-    // Создание Peer Connection
-    function createPeerConnection() {
-      peerConnection = new RTCPeerConnection(configuration);
-
-      // Добавление локального потока
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
-
-      // Получение удаленного потока
-      peerConnection.ontrack = (event) => {
-        remoteVideo.srcObject = event.streams[0];
-      };
-
-      // Обмен ICE кандидатами
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('signal', {
-            type: 'ice-candidate',
-            candidate: event.candidate
-          });
-        }
-      };
-    }
-
-    // Начало звонка
-    async function startCall() {
-      createPeerConnection();
-      
-      try {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        
-        socket.emit('signal', {
-          type: 'offer',
-          offer: offer
-        });
-      } catch (error) {
-        console.error('Error creating offer:', error);
-      }
-    }
-
-    // Обработка входящих сигналов
+  
+    // Добавьте обработчики событий socket.io
+    socket.on('connect', () => {
+      console.log('Connected to server with ID:', socket.id);
+      startBtn.disabled = false;
+    });
+  
+    socket.on('disconnect', () => {
+      console.log('Disconnected from server');
+    });
+  
+    socket.on('connected', (data) => {
+      console.log('Server confirmed connection, ID:', data.id);
+    });
+  
     socket.on('signal', async (data) => {
-      if (!peerConnection) createPeerConnection();
-
+      console.log('Received signal:', data.type);
+      
+      if (!peerConnection) {
+        createPeerConnection();
+      }
+  
       try {
         if (data.type === 'offer') {
           await peerConnection.setRemoteDescription(data.offer);
@@ -112,9 +81,76 @@
         console.error('Error handling signal:', error);
       }
     });
-
+  
+    async function getMedia() {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        localVideo.srcObject = localStream;
+        console.log('Got media stream');
+      } catch (error) {
+        console.error('Error accessing media devices:', error);
+        alert('Cannot access camera/microphone: ' + error.message);
+      }
+    }
+  
+    function createPeerConnection() {
+      peerConnection = new RTCPeerConnection(configuration);
+  
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+  
+      peerConnection.ontrack = (event) => {
+        console.log('Received remote stream');
+        remoteVideo.srcObject = event.streams[0];
+      };
+  
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('signal', {
+            type: 'ice-candidate',
+            candidate: event.candidate
+          });
+        }
+      };
+  
+      peerConnection.onconnectionstatechange = () => {
+        console.log('Connection state:', peerConnection.connectionState);
+      };
+  
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('ICE connection state:', peerConnection.iceConnectionState);
+      };
+    }
+  
+    async function startCall() {
+      if (!peerConnection) {
+        createPeerConnection();
+      }
+      
+      try {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        socket.emit('signal', {
+          type: 'offer',
+          offer: offer
+        });
+        console.log('Offer sent');
+      } catch (error) {
+        console.error('Error creating offer:', error);
+      }
+    }
+  
     startBtn.addEventListener('click', startCall);
-    getMedia();
+    
+    // Инициализация
+    getMedia().then(() => {
+      console.log('Media initialization complete');
+    });
   </script>
 </body>
 </html>
